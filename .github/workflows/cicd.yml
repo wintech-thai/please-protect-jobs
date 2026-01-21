@@ -1,4 +1,4 @@
-name: onix-v2-jobs
+name: please-projtect-job
 permissions:
   contents: read
   actions: read
@@ -57,7 +57,7 @@ jobs:
         fi
 
         DOCKERFILE=Dockerfile
-        if [[ $SERVICE == "onix-v2-jobs" ]]; then
+        if [[ $SERVICE == "please-projtect-job" ]]; then
           DOCKERFILE=Dockerfile
         fi
 
@@ -158,6 +158,6 @@ jobs:
       with:
         status: ${{ job.status }}
         fields: repo,message,commit,author,ref,workflow # selectable (default: repo,message)
-        text: "Done deploying [onix-v2-jobs] [${{ needs.build1.outputs.imageTag }}] to [${{ needs.build1.outputs.autoDeployEnv }}]"
+        text: "Done deploying [please-projtect-job] [${{ needs.build1.outputs.imageTag }}] to [${{ needs.build1.outputs.autoDeployEnv }}]"
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_URL }} # required
