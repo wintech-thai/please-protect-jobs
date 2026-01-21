@@ -19,4 +19,4 @@ RUN gcloud -v
 WORKDIR /scripts
 COPY scripts/ .
 
-RUN gem install redis
+RUN gem install redis pg
