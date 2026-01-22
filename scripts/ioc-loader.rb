@@ -12,7 +12,7 @@ def load_cache_aggregate(dbConn, redisObj, aggrType)
   cnt = 0
   upsertCount = 0
   redisObj.scan_each(match: "#{aggrType}!!*") do |key|
-      lastSeen = redisObj.get(key)
+      lastSeen = redisObj.get(key).to_i
 
       lastSeenStr = Time.at(lastSeen).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -22,7 +22,7 @@ def load_cache_aggregate(dbConn, redisObj, aggrType)
       puts("DEBUG_00 : [#{cnt}] Loading [#{namespace}] [#{oicType}] [#{dataSet}] [#{iocValue}] [#{lastSeenStr}]\n")
 
       upsertKey = "UPSERT_#{aggrType}:#{key}"
-      previousLastSeen = redisObj.get(upsertKey)
+      previousLastSeen = redisObj.get(upsertKey).to_i
 
       needUpsert = false
       if (previousLastSeen.nil?)
