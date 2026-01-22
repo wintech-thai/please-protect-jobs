@@ -66,37 +66,40 @@ def upsertData(dbConn, type, keyword, lastSeenDate, seq)
   time = Time.at(lastSeenDate).utc
 
   #puts("INFO : [#{seq}] [#{type}] [#{dateStr}] [#{aggregatorPod}] [#{attributes}] --> [#{aggrCount}]")
-  
+  sql = <<~SQL
+  INSERT INTO "Iocs"
+  (
+    ioc_id,
+    org_id,
+    dataset,
+    ioc_type,
+    ioc_sub_type,
+    ioc_value,
+    tags,
+    created_date,
+    last_seen_date
+  )
+  VALUES
+  (
+    gen_random_uuid(), $1, $2, $3, $4, $5, $6, current_timestamp, $7
+  )
+  ON CONFLICT (org_id, ioc_type, dataset, ioc_value, ioc_sub_type)
+  DO UPDATE SET last_seen_date = $7
+SQL
+
   begin
     dbConn.transaction do |con|
-        con.exec "INSERT INTO \"Iocs\" 
-        (
-            ioc_id,
-            org_id,
-            dataset,
-            ioc_type,
-            ioc_sub_type,
-            ioc_value,
-            tags,
-            created_date,
-            last_seen_date
-        )
-        VALUES
-        (
-            gen_random_uuid(),
-            '#{escape_char(orgId)}',
-            '#{escape_char(dataSet)}',
-            '#{escape_char(dataSet)}',
-            '#{escape_char(oicType)}',
-            '#{escape_char("")}',
-            '#{escape_char(iocValue)}',
-            '#{escape_char("")}',
-             current_timestamp,
-            #{time}
-        )
-        ON CONFLICT(org_id, ioc_type, dataset, ioc_value, ioc_sub_type)
-        DO UPDATE SET last_seen_date = #{time}
-        "
+      con.exec_params(sql,
+        [
+          orgId,
+          dataSet,
+          oicType,
+          "",
+          iocValue,
+          "",
+          time
+        ]
+      )
     end
   rescue PG::Error => e
     puts("ERROR - Insert data to DB upsertData() [#{e.message}]")
