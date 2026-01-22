@@ -14,7 +14,7 @@ def load_cache_aggregate(dbConn, redisObj, aggrType)
   redisObj.scan_each(match: "#{aggrType}!!*") do |key|
       lastSeen = redisObj.get(key)
 
-      lastSeenStr = Time.at(ts).strftime("%Y-%m-%d %H:%M:%S")
+      lastSeenStr = Time.at(lastSeen).strftime("%Y-%m-%d %H:%M:%S")
 
       namespace, oicType, dataSet, iocValue = key.split("!!")
 
