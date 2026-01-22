@@ -11,6 +11,7 @@ def load_cache_aggregate(dbConn, redisObj, aggrType)
 
   cnt = 0
   upsertCount = 0
+  skipCount = 0
   redisObj.scan_each(match: "#{aggrType}!!*") do |key|
       lastSeen = redisObj.get(key).to_i
 
@@ -44,10 +45,11 @@ def load_cache_aggregate(dbConn, redisObj, aggrType)
         redisObj.setex(upsertKey, 86400, lastSeen)
       else
         puts("DEBUG_01 : [#{cnt}] Skipped [#{namespace}] [#{oicType}] [#{dataSet}] [#{iocValue}] [#{lastSeenStr}]\n")
+        skipCount = skipCount + 1
       end
   end
 
-  puts("DEBUG : Done loading [#{aggrType}] readCount=[#{cnt}], upsertCount=[#{upsertCount}] to PostgreSQL\n")
+  puts("DEBUG : Done loading [#{aggrType}] readCount=[#{cnt}], upsertCount=[#{upsertCount}], skipCount=[#{skipCount}]\n")
   return cnt
 end
 
