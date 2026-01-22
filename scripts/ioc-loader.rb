@@ -35,13 +35,15 @@ def load_cache_aggregate(dbConn, redisObj, aggrType)
         end
       end
 
-needUpsert = true # ทดสอบให้ upsert ตลอดเวลาก่อน 
+#needUpsert = true # ทดสอบให้ upsert ตลอดเวลาก่อน 
 
       if (needUpsert)
         upsertData(dbConn, aggrType, key, lastSeen, cnt)
         upsertCount = upsertCount + 1
 
         redisObj.setex(upsertKey, 86400, lastSeen)
+      else
+        puts("DEBUG_01 : [#{cnt}] Skipped [#{namespace}] [#{oicType}] [#{dataSet}] [#{iocValue}] [#{lastSeenStr}]\n")
       end
   end
 
