@@ -17,6 +17,14 @@ CLIENT_ID         = ENV.fetch("IDP_CLIENT_ID")
 REALM_NAME        = ENV.fetch("IDP_REALM")
 ADMIN_USER        = ENV.fetch("IDP_USER")
 ADMIN_PASSWORD    = ENV.fetch("IDP_PASSWORD")
+INITIAL_USER     = ENV["INITIAL_USER"]
+INITIAL_PASSWORD = ENV["INITIAL_PASSWORD"]
+
+def mask(value)
+  return "(nil)" if value.nil?
+  return "(empty)" if value.empty?
+  return "*" * value.length
+end
 
 def http_request(method, url, token: nil, body: nil)
   uri = URI.parse(url)
@@ -93,6 +101,18 @@ def admin_token
   JSON.parse(response.body)["access_token"]
 end
 
+
+puts "===== ENV DEBUG ====="
+puts "IDP_URL: #{IDP_URL}"
+puts "CLIENT_ID: #{CLIENT_ID}"
+puts "REALM_NAME: #{REALM_NAME}"
+puts "ADMIN_USER: #{ADMIN_USER}"
+puts "ADMIN_PASSWORD: #{mask(ADMIN_PASSWORD)}"
+puts "INITIAL_USER: #{INITIAL_USER}"
+puts "INITIAL_PASSWORD: #{mask(INITIAL_PASSWORD)}"
+puts "====================="
+
+
 token = admin_token
 puts "Authenticated."
 
@@ -109,13 +129,13 @@ if realm_exists
   puts "Realm exists. Updating..."
   http_request(:put, "#{IDP_URL}/admin/realms/#{REALM_NAME}",
     token: token,
-    body: { realm: REALM_NAME, enabled: true }
+    body: { realm: REALM_NAME, enabled: true, duplicateEmailsAllowed: true }
   )
 else
   puts "Creating realm..."
   http_request(:post, "#{IDP_URL}/admin/realms",
     token: token,
-    body: { realm: REALM_NAME, enabled: true }
+    body: { realm: REALM_NAME, enabled: true, duplicateEmailsAllowed: true }
   )
 end
 
@@ -216,6 +236,51 @@ if enc_component
   )
 else
   puts "No rsa-enc-generated component found."
+end
+
+# --------------------------
+# INITIAL USER (idempotent)
+# --------------------------
+
+if INITIAL_USER && INITIAL_PASSWORD
+  puts "Ensuring initial user exists..."
+
+  users_res = http_request(
+    :get,
+    "#{IDP_URL}/admin/realms/#{REALM_NAME}/users?username=#{INITIAL_USER}",
+    token: token
+  )
+
+  users = JSON.parse(users_res.body)
+
+  if users.empty?
+    puts "Creating user #{INITIAL_USER}..."
+
+    http_request(
+      :post,
+      "#{IDP_URL}/admin/realms/#{REALM_NAME}/users",
+      token: token,
+      body: {
+        username: INITIAL_USER,
+        enabled: true,
+        emailVerified: false,
+        credentials: [
+          {
+            type: "password",
+            value: INITIAL_PASSWORD,
+            temporary: false
+          }
+        ]
+      }
+    )
+
+    puts "User created."
+  else
+    puts "User already exists. Skipping creation and password update."
+  end
+
+else
+  puts "INITIAL_USER or INITIAL_PASSWORD not set. Skipping user creation."
 end
 
 puts "Done."
