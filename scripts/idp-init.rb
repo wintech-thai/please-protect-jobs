@@ -264,6 +264,11 @@ if INITIAL_USER && INITIAL_PASSWORD
         username: INITIAL_USER,
         enabled: true,
         emailVerified: false,
+
+        firstName: "Initial",
+        lastName: "Administrator",
+        email: "#{INITIAL_USER}@default.local",
+
         credentials: [
           {
             type: "password",
