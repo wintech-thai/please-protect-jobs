@@ -27,7 +27,6 @@ CA_CERT   = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 # Secret Definition
 # ========================
 SECRET_KEYS = {
-
   "GRAFANA_USER"     => { fixed: "admin" },
   "GRAFANA_PASSWORD" => { type: :alnum, length: 16 },
 
@@ -36,7 +35,7 @@ SECRET_KEYS = {
 
   "ES_USER"     => { fixed: "admin" },
   "ES_PASSWORD" => { type: :alnum, length: 16 },
-  "ES_BASIC_AUTH" => { derived: ["ES_USER","ES_PASSWORD"], format: "%s:%s", encode: :base64 },
+  "ES_BASIC_AUTH" => { type: :base64, length: 16 },
   "ES_ROLE"       => { fixed: "superuser" },
 
   "POSTGRES_USER"     => { fixed: "postgres" },
@@ -74,57 +73,16 @@ def generate_value(config)
   when :base64
     Base64.strict_encode64(SecureRandom.random_bytes(config[:length]))
   else
-    SecureRandom.alphanumeric(config[:length] || 16)
+    SecureRandom.alphanumeric(config[:length])
   end
 end
 
-def resolve_raw_values(existing={})
-  values = {}
-
-  # pass 1: fixed / random
-  SECRET_KEYS.each do |key, config|
-
-    if existing[key]
-      values[key] = existing[key]
-      next
-    end
-
-    if config[:fixed]
-      values[key] = config[:fixed]
-
-    elsif config[:type]
-      values[key] = generate_value(config)
-
-    end
-  end
-
-  # pass 2: derived values
-  SECRET_KEYS.each do |key, config|
-
-    next unless config[:derived]
-
-    sources = config[:derived].map { |k| values[k] }
-
-    if config[:format]
-      value = config[:format] % sources
-    else
-      value = sources.join(":")
-    end
-
-    if config[:encode] == :base64
-      value = Base64.strict_encode64(value)
-    end
-
-    values[key] = value
-  end
-
-  values
+def resolve_value(config)
+  config[:fixed] || generate_value(config)
 end
 
 def kube_request(method, path, body=nil)
-
   uri = URI("https://#{KUBE_HOST}:#{KUBE_PORT}#{path}")
-
   http = Net::HTTP.new(uri.host, uri.port)
   http.use_ssl = true
   http.ca_file = CA_CERT
@@ -152,13 +110,12 @@ end
 # Core Logic
 # ========================
 def ensure_secret
-
   puts "Checking secret #{SECRET_NAME}..."
 
   res = kube_request(:get, "/api/v1/namespaces/#{NAMESPACE}/secrets/#{SECRET_NAME}")
 
-  unless ["200","404"].include?(res.code)
-    puts "Error fetching secret #{res.code}"
+  unless ["200", "404"].include?(res.code)
+    puts "Error fetching secret: #{res.code}"
     puts res.body
     return
   end
@@ -167,15 +124,13 @@ def ensure_secret
   # CREATE
   # ========================
   if res.code == "404"
-
     puts "Secret not found. Creating..."
-
-    raw_values = resolve_raw_values
 
     data = {}
 
-    raw_values.each do |k,v|
-      data[k] = Base64.strict_encode64(v)
+    SECRET_KEYS.each do |key, config|
+      value = resolve_value(config)
+      data[key] = Base64.strict_encode64(value)
     end
 
     body = {
@@ -186,8 +141,7 @@ def ensure_secret
       data: data
     }
 
-    create_res = kube_request(
-      :post,
+    create_res = kube_request(:post,
       "/api/v1/namespaces/#{NAMESPACE}/secrets",
       body
     )
@@ -200,57 +154,50 @@ def ensure_secret
   # PATCH
   # ========================
   secret = JSON.parse(res.body)
-
   existing_data = secret["data"] || {}
-
-  existing_raw = {}
-
-  existing_data.each do |k,v|
-    existing_raw[k] = Base64.decode64(v) rescue nil
-  end
-
-  desired = resolve_raw_values(existing_raw)
-
   updated_data = {}
 
-  desired.each do |k,v|
+  SECRET_KEYS.each do |key, config|
+    existing_value =
+      begin
+        existing_data[key] ? Base64.decode64(existing_data[key]) : nil
+      rescue
+        nil
+      end
 
-    encoded = Base64.strict_encode64(v)
-
-    if existing_data[k] != encoded
-      puts "Updating #{k}"
-      updated_data[k] = encoded
+    if config[:fixed]
+      if existing_value != config[:fixed]
+        puts "Fixing value for #{key}..."
+        updated_data[key] = Base64.strict_encode64(config[:fixed])
+      end
+    else
+      unless existing_data.key?(key)
+        puts "Generating value for #{key}..."
+        updated_data[key] = Base64.strict_encode64(generate_value(config))
+      end
     end
   end
 
   if updated_data.any?
-
     puts "Patching secret..."
-
-    patch_res = kube_request(
-      :patch,
+    patch_res = kube_request(:patch,
       "/api/v1/namespaces/#{NAMESPACE}/secrets/#{SECRET_NAME}",
       { data: updated_data }
     )
-
     puts "Patch result: #{patch_res.code}"
-
   else
     puts "Secret OK"
   end
-
 end
 
 # ========================
 # Main
 # ========================
 if RUN_MODE == "loop"
-
   loop do
     ensure_secret
     sleep CHECK_INTERVAL
   end
-
 else
   ensure_secret
 end
