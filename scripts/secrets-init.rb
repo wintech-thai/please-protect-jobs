@@ -36,7 +36,7 @@ SECRET_KEYS = {
 
   "ES_USER"     => { fixed: "admin" },
   "ES_PASSWORD" => { type: :alnum, length: 16 },
-  "ES_BASIC_AUTH" => { derived: ["ES_USER","ES_PASSWORD"], format: "%s:%s", encode: :base64 },
+  "ES_BASIC_AUTH" => { derived: ["ES_USER","ES_PASSWORD"], format: "%s:%s" },
   "ES_ROLE"       => { fixed: "superuser" },
 
   "POSTGRES_USER"     => { fixed: "postgres" },
@@ -110,7 +110,7 @@ def resolve_raw_values(existing={})
     else
       value = sources.join(":")
     end
-
+puts("Derived #{key} from #{config[:derived].join(", ")} => #{value}")
     if config[:encode] == :base64
       value = Base64.strict_encode64(value)
     end
