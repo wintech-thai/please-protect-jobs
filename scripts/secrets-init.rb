@@ -82,9 +82,18 @@ def kube_request(method, path, body=nil)
 
   req = req_class.new(uri)
   req["Authorization"] = "Bearer #{TOKEN}"
-  req["Content-Type"] = "application/merge-patch+json"
 
-  req.body = body.to_json if body
+  if body
+    case method
+    when :patch
+      req["Content-Type"] = "application/merge-patch+json"
+    else
+      req["Content-Type"] = "application/json"
+    end
+
+    req.body = body.to_json
+  end
+
   http.request(req)
 end
 
