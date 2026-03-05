@@ -48,7 +48,7 @@ SECRET_KEYS = {
   "GIT_PASSWORD" => { type: :alnum, length: 16 },
 
   "INITIAL_USER"     => { fixed: "admin" },
-  "INITIAL_PASSWORD" => { type: :alnum, length: 16 }
+  "INITIAL_PASSWORD" => { type: :alnum, length: 16 },
 
   "IDP_CLIENT_ID_DEV"      => { fixed: "pp-api" },
   "IDP_CLIENT_SECRET_DEV"  => { fixed: "notused" },
@@ -58,7 +58,7 @@ SECRET_KEYS = {
   "IDP_CLIENT_ID_PROD"     => { fixed: "pp-api" },
   "IDP_CLIENT_SECRET_PROD" => { fixed: "notused" },
   "IDP_REALM_PROD"         => { fixed: "pp-prod" },
-  "IDP_URL_PREFIX_PROD"    => { fixed: "http://keycloak.keycloak.svc.cluster.local" }
+  "IDP_URL_PREFIX_PROD"    => { fixed: "http://keycloak.keycloak.svc.cluster.local" },
 }
 
 # ========================
