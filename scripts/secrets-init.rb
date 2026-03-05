@@ -49,6 +49,16 @@ SECRET_KEYS = {
 
   "INITIAL_USER"     => { fixed: "admin" },
   "INITIAL_PASSWORD" => { type: :alnum, length: 16 }
+
+  "IDP_CLIENT_ID_DEV"      => { fixed: "pp-api" },
+  "IDP_CLIENT_SECRET_DEV"  => { fixed: "notused" },
+  "IDP_REALM_DEV"          => { fixed: "pp-dev" },
+  "IDP_URL_PREFIX_DEV"     => { fixed: "http://keycloak.keycloak.svc.cluster.local" },
+
+  "IDP_CLIENT_ID_PROD"     => { fixed: "pp-api" },
+  "IDP_CLIENT_SECRET_PROD" => { fixed: "notused" },
+  "IDP_REALM_PROD"         => { fixed: "pp-prod" },
+  "IDP_URL_PREFIX_PROD"    => { fixed: "http://keycloak.keycloak.svc.cluster.local" }
 }
 
 # ========================
