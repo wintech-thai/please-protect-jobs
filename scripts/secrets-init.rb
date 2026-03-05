@@ -36,7 +36,7 @@ SECRET_KEYS = {
 
   "ES_USER"     => { fixed: "admin" },
   "ES_PASSWORD" => { type: :alnum, length: 16 },
-  "ES_BASIC_AUTH" => { derived: ["ES_USER","ES_PASSWORD"], format: "%s:%s", encode: :base64 },
+  "ES_BASIC_AUTH" => { derived: ["ES_USER","ES_PASSWORD"], format: "%s:%s" },
   "ES_ROLE"       => { fixed: "superuser" },
 
   "POSTGRES_USER"     => { fixed: "postgres" },
