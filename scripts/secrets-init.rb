@@ -5,7 +5,6 @@ require 'base64'
 require 'uri'
 
 if File.exist?('env.rb')
-  #Default environment variables
   require './env'
 end
 
@@ -25,7 +24,7 @@ TOKEN     = File.read("/var/run/secrets/kubernetes.io/serviceaccount/token")
 CA_CERT   = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 
 # ========================
-# กำหนด Secret Keys + pattern
+# Secret Definition
 # ========================
 SECRET_KEYS = {
   "GRAFANA_USER"     => { fixed: "admin" },
@@ -53,7 +52,7 @@ SECRET_KEYS = {
 }
 
 # ========================
-# Helper
+# Helpers
 # ========================
 def generate_value(config)
   case config[:type]
@@ -66,6 +65,10 @@ def generate_value(config)
   else
     SecureRandom.alphanumeric(config[:length])
   end
+end
+
+def resolve_value(config)
+  config[:fixed] || generate_value(config)
 end
 
 def kube_request(method, path, body=nil)
@@ -84,12 +87,8 @@ def kube_request(method, path, body=nil)
   req["Authorization"] = "Bearer #{TOKEN}"
 
   if body
-    case method
-    when :patch
-      req["Content-Type"] = "application/merge-patch+json"
-    else
-      req["Content-Type"] = "application/json"
-    end
+    req["Content-Type"] =
+      method == :patch ? "application/merge-patch+json" : "application/json"
 
     req.body = body.to_json
   end
@@ -97,17 +96,31 @@ def kube_request(method, path, body=nil)
   http.request(req)
 end
 
+# ========================
+# Core Logic
+# ========================
 def ensure_secret
   puts "Checking secret #{SECRET_NAME}..."
 
   res = kube_request(:get, "/api/v1/namespaces/#{NAMESPACE}/secrets/#{SECRET_NAME}")
 
+  unless ["200", "404"].include?(res.code)
+    puts "Error fetching secret: #{res.code}"
+    puts res.body
+    return
+  end
+
+  # ========================
+  # CREATE
+  # ========================
   if res.code == "404"
     puts "Secret not found. Creating..."
 
     data = {}
+
     SECRET_KEYS.each do |key, config|
-      data[key] = Base64.strict_encode64(generate_value(config))
+      value = resolve_value(config)
+      data[key] = Base64.strict_encode64(value)
     end
 
     body = {
@@ -118,30 +131,39 @@ def ensure_secret
       data: data
     }
 
-    create_res = kube_request(:post, "/api/v1/namespaces/#{NAMESPACE}/secrets", body)
+    create_res = kube_request(:post,
+      "/api/v1/namespaces/#{NAMESPACE}/secrets",
+      body
+    )
+
     puts "Create result: #{create_res.code}"
     return
   end
 
+  # ========================
+  # PATCH
+  # ========================
   secret = JSON.parse(res.body)
   existing_data = secret["data"] || {}
   updated_data = {}
 
   SECRET_KEYS.each do |key, config|
-    existing_value = existing_data[key] ? Base64.decode64(existing_data[key]) : nil
+    existing_value =
+      begin
+        existing_data[key] ? Base64.decode64(existing_data[key]) : nil
+      rescue
+        nil
+      end
 
     if config[:fixed]
-      # ถ้าเป็น fixed value
       if existing_value != config[:fixed]
         puts "Fixing value for #{key}..."
         updated_data[key] = Base64.strict_encode64(config[:fixed])
       end
     else
-      # เป็น random value
       unless existing_data.key?(key)
         puts "Generating value for #{key}..."
-        new_value = generate_value(config)
-        updated_data[key] = Base64.strict_encode64(new_value)
+        updated_data[key] = Base64.strict_encode64(generate_value(config))
       end
     end
   end
