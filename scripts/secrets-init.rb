@@ -110,7 +110,7 @@ def resolve_raw_values(existing={})
     else
       value = sources.join(":")
     end
-
+puts("Derived #{key} from #{config[:derived].join(", ")} => #{value}")
     if config[:encode] == :base64
       value = Base64.strict_encode64(value)
     end
