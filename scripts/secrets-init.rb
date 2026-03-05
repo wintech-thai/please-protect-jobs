@@ -33,7 +33,7 @@ SECRET_KEYS = {
   "KEYCLOAK_USER"     => { fixed: "admin" },
   "KEYCLOAK_PASSWORD" => { type: :alnum, length: 16 },
 
-  "ES_USER"     => { fixed: "elastic" },
+  "ES_USER"     => { fixed: "admin" },
   "ES_PASSWORD" => { type: :alnum, length: 16 },
   "ES_BASIC_AUTH" => { type: :base64, length: 16 },
   "ES_ROLE"       => { fixed: "superuser" },
