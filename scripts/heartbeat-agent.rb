@@ -199,7 +199,6 @@ end
 # ==========================
 # HTTP REQUEST
 # ==========================
-
 def make_request(method, url, apiKey, data)
 
   uri = URI.parse(url)
@@ -220,6 +219,7 @@ def make_request(method, url, apiKey, data)
   http.open_timeout = 5
   http.read_timeout = 10
 
+  response = http.request(request)
   raw_body = response.body
 
   body =
