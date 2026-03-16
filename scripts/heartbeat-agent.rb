@@ -267,6 +267,7 @@ def send_audit_log(request_data, response_data)
     response: response_data,
     environment: ENV['ENVIRONMENT'] || "unknown",
     AuditType: "CloudConnect",
+    CloudConnectUrl: AUDIT_ENDPOINT,
   }.to_json
 
   http = Net::HTTP.new(uri.host, uri.port)
