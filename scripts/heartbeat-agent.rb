@@ -220,14 +220,14 @@ def make_request(method, url, apiKey, data)
   http.open_timeout = 5
   http.read_timeout = 10
 
-  response = http.request(request)
+  raw_body = response.body
 
-  body = response.body
-
-  begin
-    body = JSON.parse(body)
-  rescue
-  end
+  body =
+    begin
+      JSON.parse(raw_body)
+    rescue
+      raw_body.nil? ? nil : raw_body[0,50]
+    end
 
   {
     status: response.code.to_i,
