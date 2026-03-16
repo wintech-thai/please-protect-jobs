@@ -78,9 +78,9 @@ end
 
 def get_cpu_usage
 
-  stat1 = File.readlines("/proc/stat").first.split.map(&:to_i)
+  stat1 = File.readlines("/host/proc/stat").first.split.map(&:to_i)
   sleep 0.5
-  stat2 = File.readlines("/proc/stat").first.split.map(&:to_i)
+  stat2 = File.readlines("/host/proc/stat").first.split.map(&:to_i)
 
   idle1 = stat1[4]
   idle2 = stat2[4]
@@ -100,7 +100,7 @@ def get_memory
 
   meminfo = {}
 
-  File.readlines("/proc/meminfo").each do |line|
+  File.readlines("/host/proc/meminfo").each do |line|
     key, value = line.split(":")
     meminfo[key] = value.strip.split.first.to_i
   end
@@ -141,7 +141,7 @@ def get_disk
 end
 
 def get_uptime
-  File.read("/proc/uptime").split.first.to_i
+  File.read("/host/proc/uptime").split.first.to_i
 end
 
 def get_hostname
@@ -251,7 +251,8 @@ def send_audit_log(request_data, response_data)
   req.body = {
     timestamp: Time.now.utc,
     request: request_data,
-    response: response_data
+    response: response_data,
+    environment: ENV['ENVIRONMENT'] || "unknown",
   }.to_json
 
   http = Net::HTTP.new(uri.host, uri.port)
