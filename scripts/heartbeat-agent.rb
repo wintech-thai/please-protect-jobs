@@ -118,19 +118,28 @@ def get_memory
 end
 
 def get_disk
-
   disks = []
 
-  `df -P`.split("\n")[1..].each do |line|
+  `df -P -x overlay -x tmpfs -x devtmpfs`.split("\n")[1..].each do |line|
 
     parts = line.split
+
+    filesystem = parts[0]
+    mount = parts[5]
+
+    # ignore kubernetes mounts
+    next if mount.start_with?("/var/lib/kubelet")
+    next if mount.start_with?("/run")
+    next if mount.start_with?("/sys")
+    next if mount.start_with?("/proc")
 
     total = parts[1].to_i / 1024 / 1024
     used = parts[2].to_i / 1024 / 1024
     percent = parts[4].gsub('%','').to_i
 
     disks << {
-      mount: parts[5],
+      filesystem: filesystem,
+      mount: mount,
       total_gb: total,
       used_gb: used,
       usage_percent: percent
@@ -145,7 +154,11 @@ def get_uptime
 end
 
 def get_hostname
-  `hostname`.strip
+  if File.exist?("/host/etc/hostname")
+    File.read("/host/etc/hostname").strip
+  else
+    `hostname`.strip
+  end
 end
 
 # ==========================
