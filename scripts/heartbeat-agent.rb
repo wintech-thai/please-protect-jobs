@@ -118,19 +118,28 @@ def get_memory
 end
 
 def get_disk
-
   disks = []
 
-  `df -P`.split("\n")[1..].each do |line|
+  `df -P -x overlay -x tmpfs -x devtmpfs`.split("\n")[1..].each do |line|
 
     parts = line.split
+
+    filesystem = parts[0]
+    mount = parts[5]
+
+    # ignore kubernetes mounts
+    next if mount.start_with?("/var/lib/kubelet")
+    next if mount.start_with?("/run")
+    next if mount.start_with?("/sys")
+    next if mount.start_with?("/proc")
 
     total = parts[1].to_i / 1024 / 1024
     used = parts[2].to_i / 1024 / 1024
     percent = parts[4].gsub('%','').to_i
 
     disks << {
-      mount: parts[5],
+      filesystem: filesystem,
+      mount: mount,
       total_gb: total,
       used_gb: used,
       usage_percent: percent
@@ -145,7 +154,11 @@ def get_uptime
 end
 
 def get_hostname
-  `hostname`.strip
+  if File.exist?("/host/etc/hostname")
+    File.read("/host/etc/hostname").strip
+  else
+    `hostname`.strip
+  end
 end
 
 # ==========================
@@ -199,7 +212,6 @@ end
 # ==========================
 # HTTP REQUEST
 # ==========================
-
 def make_request(method, url, apiKey, data)
 
   uri = URI.parse(url)
@@ -211,7 +223,6 @@ def make_request(method, url, apiKey, data)
   request['Content-Type'] = 'application/json'
 
   request.basic_auth("api", apiKey) unless apiKey.nil?
-
   request.body = data.to_json unless data.nil?
 
   http = Net::HTTP.new(uri.host, uri.port)
@@ -220,26 +231,55 @@ def make_request(method, url, apiKey, data)
   http.open_timeout = 5
   http.read_timeout = 10
 
+  # ⏱️ start time
+  start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
   response = http.request(request)
 
-  body = response.body
+  # ⏱️ end time
+  end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
-  begin
-    body = JSON.parse(body)
-  rescue
-  end
+  latency_ms = ((end_time - start_time) * 1000).round(2)
+
+  raw_body = response.body
+
+  body =
+    begin
+      JSON.parse(raw_body)
+    rescue
+      raw_body.nil? ? nil : raw_body[0,50]
+    end
 
   {
     status: response.code.to_i,
-    body: body
+    body: body,
+    latency_ms: latency_ms
   }
 end
+
 
 # ==========================
 # AUDIT LOG
 # ==========================
 
-def send_audit_log(request_data, response_data)
+def extract_url_parts(url)
+  begin
+    uri = URI.parse(url)
+
+    # check เบื้องต้นว่าเป็น URL ที่โอเค
+    return nil if uri.host.nil?
+
+    {
+      domain: uri.host,
+      path: uri.path.empty? ? "/" : uri.path,
+      query: uri.query,
+    }
+  rescue URI::InvalidURIError
+    nil
+  end
+end
+
+def send_audit_log(request_data, response_data, cloud_endpoint)
 
   return if AUDIT_ENDPOINT.nil?
 
@@ -248,11 +288,20 @@ def send_audit_log(request_data, response_data)
   req = Net::HTTP::Post.new(uri)
   req['Content-Type'] = 'application/json'
 
+  domain = extract_url_parts(cloud_endpoint)&.dig(:domain)
+  path = extract_url_parts(cloud_endpoint)&.dig(:path)
+  query = extract_url_parts(cloud_endpoint)&.dig(:query)
+
   req.body = {
     timestamp: Time.now.utc,
     request: request_data,
     response: response_data,
     environment: ENV['ENVIRONMENT'] || "unknown",
+    AuditType: "CloudConnect",
+    CloudConnectUrl: cloud_endpoint,
+    CloudConnectDomain: domain,
+    CloudConnectPath: path,
+    CloudConnectQuery: query,
   }.to_json
 
   http = Net::HTTP.new(uri.host, uri.port)
@@ -329,7 +378,7 @@ loop do
       puts "ERROR: Authentication failed (401). Check CloudConnectKey."
     end
 
-    send_audit_log(status, response)
+    send_audit_log(status, response, cloud_url)
 
   rescue PG::Error => e
     puts "PostgreSQL ERROR: #{e}"
