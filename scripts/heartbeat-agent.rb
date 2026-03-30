@@ -193,10 +193,11 @@ end
 # MACHINE STATUS
 # ==========================
 
-def get_machine_status
+def get_machine_status(agentId)
 
   {
     node_id: NODE_ID,
+    agent_id: agentId,
     hostname: get_hostname,
     uptime_sec: get_uptime,
     timestamp: Time.now.utc.iso8601,
@@ -346,6 +347,7 @@ loop do
     cloud_enabled = config['CloudConnectFlag'] == "true"
     cloud_key = config['CloudConnectKey']
     cloud_url = config['CloudUrl']
+    agentId = cloud_url.split('/').last
 
     if cloud_url.nil? || cloud_url.empty?
       puts "ERROR: CloudUrl is empty"
@@ -359,7 +361,7 @@ loop do
       next
     end
 
-    status = get_machine_status
+    status = get_machine_status(agentId)
 
     puts "Sending heartbeat..."
 
