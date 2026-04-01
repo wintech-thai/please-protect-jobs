@@ -32,7 +32,7 @@ def start_job(data)
   mmss = t.strftime("%H%M%S")
 
   jobMap = {
-    'ApplicationUpgrade' => ['app-updater.rb', 'cron-script'],
+    'ApplicationUpgrade' => ['app-updater', 'cron-script'],
   }
 
   random5 = random_string(5).downcase
