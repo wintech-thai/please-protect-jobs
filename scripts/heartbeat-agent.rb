@@ -253,7 +253,7 @@ def make_request(method, url, apiKey, data)
 
   {
     status: response.code.to_i,
-    body: body,
+    body: body.is_a?(String) ? body : body.to_json,
     latency_ms: latency_ms
   }
 end
