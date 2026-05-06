@@ -1,4 +1,7 @@
 env.rb
 .env
+.env.*
 *.csv
 
+downloaded/
+generated-data/
